@@ -15,19 +15,21 @@ using JetBrains.Annotations;
 namespace AvaloniaGif
 {
     public class GifInstance : IDisposable
-    { 
+    {
         public Stream Stream { get; private set; }
         public IterationCount IterationCount { get; private set; }
         public bool AutoStart { get; private set; } = true;
         public Progress<int> Progress { get; private set; }
-        
+
         bool _streamCanDispose;
         private GifDecoder _gifDecoder;
         private GifBackgroundWorker _bgWorker;
         private WriteableBitmap _targetBitmap;
         private bool _hasNewFrame;
         private bool _isDisposed;
-        
+
+        private readonly object _bitmapSync = new();
+
         public void SetSource(object newValue)
         {
             var sourceUri = newValue as Uri;
@@ -45,7 +47,6 @@ namespace AvaloniaGif
                     var assetLocator = AvaloniaLocator.Current.GetService<IAssetLoader>();
                     stream = assetLocator.Open(sourceUri);
                 }
-
             }
             else if (sourceStr != null)
             {
@@ -60,19 +61,19 @@ namespace AvaloniaGif
             _gifDecoder = new GifDecoder(Stream);
             _bgWorker = new GifBackgroundWorker(_gifDecoder);
             var pixSize = new PixelSize(_gifDecoder.Header.Dimensions.Width, _gifDecoder.Header.Dimensions.Height);
-            
-            _targetBitmap = new  WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+
+            _targetBitmap = new WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
             _bgWorker.CurrentFrameChanged += FrameChanged;
             GifPixelSize = pixSize;
             Run();
         }
 
         public PixelSize GifPixelSize { get; private set; }
- 
+
         public WriteableBitmap GetBitmap()
         {
             WriteableBitmap ret = null;
-            
+
             lock (_bitmapSync)
             {
                 if (_hasNewFrame)
@@ -84,7 +85,7 @@ namespace AvaloniaGif
 
             return ret;
         }
-        
+
         private void FrameChanged()
         {
             lock (_bitmapSync)
@@ -106,13 +107,13 @@ namespace AvaloniaGif
 
         public void IterationCountChanged(AvaloniaPropertyChangedEventArgs e)
         {
-            var newVal = (IterationCount)e.NewValue;
+            var newVal = (IterationCount) e.NewValue;
             IterationCount = newVal;
         }
 
         public void AutoStartChanged(AvaloniaPropertyChangedEventArgs e)
         {
-            var newVal = (bool)e.NewValue;
+            var newVal = (bool) e.NewValue;
             this.AutoStart = newVal;
         }
 
